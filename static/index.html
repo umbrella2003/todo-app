@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>待办清单</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        h1 { text-align: center; }
+        .input-row { display: flex; gap: 8px; margin-bottom: 20px; }
+        input { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        button { padding: 10px 16px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; background: #4CAF50; color: white; }
+        button:hover { background: #45a049; }
+        ul { list-style: none; padding: 0; }
+        li { display: flex; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid #eee; }
+        .text { flex: 1; }
+        .done { text-decoration: line-through; color: #999; }
+        .btn-toggle { background: #2196F3; }
+        .btn-toggle:hover { background: #1976D2; }
+        .btn-delete { background: #f44336; }
+        .btn-delete:hover { background: #d32f2f; }
+    </style>
+</head>
+<body>
+    <h1>📋 我的待办</h1>
+
+    <div class="input-row">
+        <input id="input" placeholder="输入新待办，回车添加..." />
+        <button onclick="addTodo()">添加</button>
+    </div>
+
+    <ul id="list"></ul>
+
+    <script>
+        const API = "";  // 同域，不用写完整地址
+
+        // 加载列表
+        async function loadTodos() {
+            const res = await fetch(`${API}/todos`);
+            const todos = await res.json();
+            const list = document.getElementById("list");
+            list.innerHTML = "";
+            todos.forEach(t => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <span class="text ${t.done ? 'done' : ''}">${t.text}</span>
+                    <button class="btn-toggle" onclick="toggleTodo(${t.id})">✓</button>
+                    <button class="btn-delete" onclick="deleteTodo(${t.id})">✗</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // 添加
+        async function addTodo() {
+            const input = document.getElementById("input");
+            const text = input.value.trim();
+            if (!text) return;
+            await fetch(`${API}/todos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text })
+            });
+            input.value = "";
+            loadTodos();
+        }
+
+        // 切换完成状态
+        async function toggleTodo(id) {
+            await fetch(`${API}/todos/${id}`, { method: "PATCH" });
+            loadTodos();
+        }
+
+        // 删除
+        async function deleteTodo(id) {
+            await fetch(`${API}/todos/${id}`, { method: "DELETE" });
+            loadTodos();
+        }
+
+        // 回车也能添加
+        document.getElementById("input").addEventListener("keypress", e => {
+            if (e.key === "Enter") addTodo();
+        });
+
+        // 首次加载
+        loadTodos();
+    </script>
+</body>
+</html>

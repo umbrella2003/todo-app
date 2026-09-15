@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from db import TodoDB
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="待办清单 API")
 db = TodoDB()
@@ -45,3 +46,6 @@ def delete_todo(todo_id: int):
     if not ok:
         raise HTTPException(status_code=404, detail="待办不存在")
     return {"ok": True}
+
+    # 把 static 文件夹挂到根路径，提供网页
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
