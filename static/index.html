@@ -15,27 +15,124 @@
         .text { flex: 1; }
         .done { text-decoration: line-through; color: #999; }
         .btn-toggle { background: #2196F3; }
-        .btn-toggle:hover { background: #1976D2; }
         .btn-delete { background: #f44336; }
-        .btn-delete:hover { background: #d32f2f; }
+        .auth-box { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .auth-box input { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+        .auth-box button { width: 100%; margin-bottom: 8px; }
+        .error { color: #f44336; font-size: 14px; margin-top: 8px; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logout { background: #999; padding: 6px 12px; font-size: 14px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <h1>📋 我的待办</h1>
 
-    <div class="input-row">
-        <input id="input" placeholder="输入新待办，回车添加..." />
-        <button onclick="addTodo()">添加</button>
+    <!-- 登录/注册区域 -->
+    <div id="auth" class="auth-box">
+        <h2 id="auth-title">登录</h2>
+        <input id="username" placeholder="用户名" />
+        <input id="password" type="password" placeholder="密码" />
+        <button onclick="submitAuth()" id="auth-btn">登录</button>
+        <button onclick="toggleAuthMode()" style="background:#666;" id="switch-btn">没有账号？去注册</button>
+        <div id="auth-error" class="error"></div>
     </div>
 
-    <ul id="list"></ul>
+    <!-- 待办区域（登录后才显示） -->
+    <div id="app" class="hidden">
+        <div class="top-bar">
+            <span>👤 <span id="current-user"></span></span>
+            <button class="logout" onclick="logout()">退出登录</button>
+        </div>
+        <h1>📋 我的待办</h1>
+        <div class="input-row">
+            <input id="input" placeholder="输入新待办，回车添加..." />
+            <button onclick="addTodo()">添加</button>
+        </div>
+        <ul id="list"></ul>
+    </div>
 
     <script>
-        const API = "";  // 同域，不用写完整地址
+        const API = "";
+        let isLoginMode = true;
+        let token = localStorage.getItem("token") || "";
 
-        // 加载列表
+        // ===== 认证相关 =====
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById("auth-title").textContent = isLoginMode ? "登录" : "注册";
+            document.getElementById("auth-btn").textContent = isLoginMode ? "登录" : "注册";
+            document.getElementById("switch-btn").textContent = isLoginMode ? "没有账号？去注册" : "已有账号？去登录";
+            document.getElementById("auth-error").textContent = "";
+        }
+
+        async function submitAuth() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value;
+            const errEl = document.getElementById("auth-error");
+            errEl.textContent = "";
+
+            if (!username || !password) {
+                errEl.textContent = "用户名和密码不能为空";
+                return;
+            }
+
+            const url = isLoginMode ? "/login" : "/register";
+            try {
+                const res = await fetch(API + url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    errEl.textContent = data.detail || "出错了";
+                    return;
+                }
+                if (isLoginMode) {
+                    token = data.access_token;
+                    localStorage.setItem("token", token);
+                    localStorage.setItem("username", username);
+                    enterApp();
+                } else {
+                    errEl.style.color = "#4CAF50";
+                    errEl.textContent = "注册成功！请登录";
+                    isLoginMode = true;
+                    document.getElementById("auth-title").textContent = "登录";
+                    document.getElementById("auth-btn").textContent = "登录";
+                    document.getElementById("switch-btn").textContent = "没有账号？去注册";
+                }
+            } catch (e) {
+                errEl.textContent = "网络错误: " + e.message;
+            }
+        }
+
+        function logout() {
+            token = "";
+            localStorage.removeItem("token");
+            localStorage.removeItem("username");
+            location.reload();
+        }
+
+        function enterApp() {
+            document.getElementById("auth").classList.add("hidden");
+            document.getElementById("app").classList.remove("hidden");
+            document.getElementById("current-user").textContent = localStorage.getItem("username") || "";
+            loadTodos();
+        }
+
+        // ===== 待办相关 =====
+
+        function authHeaders() {
+            return {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            };
+        }
+
         async function loadTodos() {
-            const res = await fetch(`${API}/todos`);
+            const res = await fetch(API + "/todos", { headers: authHeaders() });
+            if (res.status === 401) { logout(); return; }
             const todos = await res.json();
             const list = document.getElementById("list");
             list.innerHTML = "";
@@ -50,39 +147,45 @@
             });
         }
 
-        // 添加
         async function addTodo() {
             const input = document.getElementById("input");
             const text = input.value.trim();
             if (!text) return;
-            await fetch(`${API}/todos`, {
+            await fetch(API + "/todos", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: authHeaders(),
                 body: JSON.stringify({ text })
             });
             input.value = "";
             loadTodos();
         }
 
-        // 切换完成状态
         async function toggleTodo(id) {
-            await fetch(`${API}/todos/${id}`, { method: "PATCH" });
+            await fetch(API + `/todos/${id}`, {
+                method: "PATCH",
+                headers: authHeaders()
+            });
             loadTodos();
         }
 
-        // 删除
         async function deleteTodo(id) {
-            await fetch(`${API}/todos/${id}`, { method: "DELETE" });
+            await fetch(API + `/todos/${id}`, {
+                method: "DELETE",
+                headers: authHeaders()
+            });
             loadTodos();
         }
 
-        // 回车也能添加
         document.getElementById("input").addEventListener("keypress", e => {
             if (e.key === "Enter") addTodo();
         });
 
-        // 首次加载
-        loadTodos();
+        // ===== 启动 =====
+
+        if (token) {
+            enterApp();
+        }
+        // 否则显示登录框（默认就是显示的，不用管）
     </script>
 </body>
 </html>
