@@ -1,3 +1,4 @@
+import os 
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from jose import jwt
@@ -15,7 +16,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ========== JWT ==========
-SECRET_KEY = "123456789"  # 后面登录要用
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-please-change")
 ALGORITHM = "HS256"
 EXPIRE_MINUTES = 60 * 24   # 令牌有效期 24 小时
 

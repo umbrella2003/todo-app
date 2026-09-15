@@ -1,14 +1,13 @@
+import os
 import psycopg
 
-# 把数据库配置集中放在这里
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "todo_db",
-    "user": "postgres",
-    "password": "123456"    # ⚠️ 改成你自己的密码
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", "5432")),
+    "dbname": os.getenv("DB_NAME", "todo_db"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "123456"),
 }
-
 
 class TodoDB:
     """把数据库操作封装成一个类"""
