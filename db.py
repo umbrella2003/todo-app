@@ -17,42 +17,74 @@ class TodoDB:
         # 每次操作都开一个新连接，用完就关，最简单最安全
         return psycopg.connect(**DB_CONFIG)
 
-    def add(self, text):
-        """添加待办，返回新记录的 id"""
+# ========== 下面是用户相关的方法 ==========
+
+    def create_user(self, username, password_hash):
+        """创建用户，返回 True 成功，False 表示用户名已存在"""
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+                        (username, password_hash)
+                    )
+                conn.commit()
+            return True
+        except psycopg.errors.UniqueViolation:
+            return False
+
+    def get_user(self, username):
+        """按用户名查，返回 (id, username, password_hash) 或 None"""
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO todos (text) VALUES (%s) RETURNING id",
-                    (text,)
+                    "SELECT id, username, password_hash FROM users WHERE username = %s",
+                    (username,)
+                )
+                return cur.fetchone()
+
+    def add(self, text, user_id):
+        """给某个用户添加待办"""
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO todos (text, user_id) VALUES (%s, %s) RETURNING id",
+                    (text, user_id)
                 )
                 new_id = cur.fetchone()[0]
             conn.commit()
         return new_id
 
-    def list_all(self):
-        """返回所有待办，每行是 (id, text, done)"""
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT id, text, done FROM todos ORDER BY id")
-                return cur.fetchall()
-
-    def toggle(self, todo_id):
-        """切换完成状态，返回 True 表示改到了数据"""
+    def list_all(self, user_id):
+        """只查某个用户的待办"""
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE todos SET done = NOT done WHERE id = %s",
-                    (todo_id,)
+                    "SELECT id, text, done FROM todos WHERE user_id = %s ORDER BY id",
+                    (user_id,)
+                )
+                return cur.fetchall()
+
+    def toggle(self, todo_id, user_id):
+        """切换状态，只能改自己的"""
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE todos SET done = NOT done WHERE id = %s AND user_id = %s",
+                    (todo_id, user_id)
                 )
                 affected = cur.rowcount
             conn.commit()
         return affected > 0
 
-    def delete(self, todo_id):
-        """删除，返回 True 表示删到了数据"""
+    def delete(self, todo_id, user_id):
+        """删除，只能删自己的"""
         with self._connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM todos WHERE id = %s", (todo_id,))
+                cur.execute(
+                    "DELETE FROM todos WHERE id = %s AND user_id = %s",
+                    (todo_id, user_id)
+                )
                 affected = cur.rowcount
             conn.commit()
         return affected > 0
