@@ -4,6 +4,54 @@
     <meta charset="UTF-8">
     <title>待办清单</title>
     <style>
+        :root {
+            --bg: #fff;
+            --text: #333;
+            --input-bg: #fff;
+            --input-border: #ccc;
+            --item-border: #eee;
+            --muted: #999;
+            --tag-bg: #e3f2fd;
+            --tag-text: #1976D2;
+        }
+
+        body.dark {
+            --bg: #1e1e1e;
+            --text: #e0e0e0;
+            --input-bg: #2d2d2d;
+            --input-border: #444;
+            --item-border: #333;
+            --muted: #888;
+            --tag-bg: #1a3a52;
+            --tag-text: #64b5f6;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        input, select {
+            background: var(--input-bg);
+            border-color: var(--input-border);
+            color: var(--text);
+        }
+
+        li { border-color: var(--item-border); }
+        .done { color: var(--muted); }
+        .date { color: var(--muted); }
+        .category-tag { background: var(--tag-bg); color: var(--tag-text); }
+        .filter-btn { background: var(--item-border); color: var(--text); }
+        .filter-btn.active { background: #4CAF50; color: white; }
+
+        /* 淡入动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        li { animation: fadeIn 0.25s ease-out; }
+
         body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
         h1 { text-align: center; }
         .input-row { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -47,7 +95,10 @@
     <div id="app" class="hidden">
         <div class="top-bar">
             <span>👤 <span id="current-user"></span></span>
-            <button class="logout" onclick="logout()">退出登录</button>
+            <div>
+                <button class="logout" id="theme-btn" onclick="toggleTheme()" style="margin-right:8px;">🌙</button>
+                <button class="logout" onclick="logout()">退出登录</button>
+            </div>
         </div>
         <h1>📋 我的待办</h1>
         <div style="margin-bottom:12px;">
@@ -91,7 +142,20 @@
         }
 
         // ===== 认证相关 =====
+        function applyTheme(dark) {
+            document.body.classList.toggle("dark", dark);
+            document.getElementById("theme-btn").textContent = dark ? "☀️" : "🌙";
+        }
 
+        function toggleTheme() {
+            const isDark = !document.body.classList.contains("dark");
+            localStorage.setItem("theme", isDark ? "dark" : "light");
+            applyTheme(isDark);
+        }
+
+        // 启动时恢复主题
+        applyTheme(localStorage.getItem("theme") === "dark");
+        
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
             document.getElementById("auth-title").textContent = isLoginMode ? "登录" : "注册";
