@@ -42,26 +42,34 @@ class TodoDB:
                 )
                 return cur.fetchone()
 
-    def add(self, text, user_id):
-        """给某个用户添加待办"""
+    def add(self, text, user_id, due_date=None, category="其他"):
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO todos (text, user_id) VALUES (%s, %s) RETURNING id",
-                    (text, user_id)
+                    "INSERT INTO todos (text, user_id, due_date, category) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (text, user_id, due_date, category)
                 )
                 new_id = cur.fetchone()[0]
             conn.commit()
         return new_id
 
-    def list_all(self, user_id):
-        """只查某个用户的待办"""
+    def list_all(self, user_id, category=None, keyword=None):
         with self._connect() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id, text, done FROM todos WHERE user_id = %s ORDER BY id",
-                    (user_id,)
-                )
+                sql = "SELECT id, text, done, due_date, category FROM todos WHERE user_id = %s"
+                params = [user_id]
+
+                if category and category != "全部":
+                    sql += " AND category = %s"
+                    params.append(category)
+
+                if keyword:
+                    sql += " AND text ILIKE %s"
+                    params.append(f"%{keyword}%")
+
+                sql += " ORDER BY id"
+
+                cur.execute(sql, params)
                 return cur.fetchall()
 
     def toggle(self, todo_id, user_id):

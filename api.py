@@ -11,6 +11,8 @@ db = TodoDB()
 # 请求体格式：POST /todos 时，body 里传 {"text": "xxx"}
 class TodoIn(BaseModel):
     text: str
+    due_date: str | None = None
+    category: str = "其他"
 class UserIn(BaseModel):
     username: str
     password: str
@@ -25,14 +27,22 @@ def register(user: UserIn):
     return {"ok": True, "username": user.username}
 
 @app.get("/todos")
-def list_todos(username: str = Depends(get_current_user)):
-    # 先把 username 转成 user_id
+def list_todos(
+    category: str | None = None,
+    keyword: str | None = None,
+    username: str = Depends(get_current_user)
+):
     row = db.get_user(username)
     user_id = row[0]
-
-    rows = db.list_all(user_id)
+    rows = db.list_all(user_id, category, keyword)
     return [
-        {"id": r[0], "text": r[1], "done": r[2]}
+        {
+            "id": r[0],
+            "text": r[1],
+            "done": r[2],
+            "due_date": r[3].isoformat() if r[3] else None,
+            "category": r[4]
+        }
         for r in rows
     ]
 
@@ -41,9 +51,14 @@ def list_todos(username: str = Depends(get_current_user)):
 def add_todo(item: TodoIn, username: str = Depends(get_current_user)):
     row = db.get_user(username)
     user_id = row[0]
-
-    new_id = db.add(item.text, user_id)
-    return {"id": new_id, "text": item.text, "done": False}
+    new_id = db.add(item.text, user_id, item.due_date, item.category)
+    return {
+        "id": new_id,
+        "text": item.text,
+        "done": False,
+        "due_date": item.due_date,
+        "category": item.category
+    }
 
 
 @app.patch("/todos/{todo_id}")

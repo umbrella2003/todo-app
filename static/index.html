@@ -14,6 +14,8 @@
         li { display: flex; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid #eee; }
         .text { flex: 1; }
         .done { text-decoration: line-through; color: #999; }
+        .date { font-size: 13px; color: #666; }
+        .date.overdue { color: #f44336; font-weight: bold; }
         .btn-toggle { background: #2196F3; }
         .btn-delete { background: #f44336; }
         .auth-box { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -23,6 +25,10 @@
         .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .logout { background: #999; padding: 6px 12px; font-size: 14px; }
         .hidden { display: none; }
+        .filter-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .filter-btn { background: #eee; color: #333; padding: 6px 14px; font-size: 14px; }
+        .filter-btn.active { background: #4CAF50; color: white; }
+        .category-tag { font-size: 12px; background: #e3f2fd; color: #1976D2; padding: 2px 8px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -44,9 +50,26 @@
             <button class="logout" onclick="logout()">退出登录</button>
         </div>
         <h1>📋 我的待办</h1>
+        <div style="margin-bottom:12px;">
+            <input id="search" placeholder="🔍 搜索待办..." style="width:100%; box-sizing:border-box;" />
+        </div>
         <div class="input-row">
             <input id="input" placeholder="输入新待办，回车添加..." />
+            <input id="due-date" type="date" style="flex:0 0 150px;" />
+            <select id="category" style="flex:0 0 100px; padding:10px; border:1px solid #ccc; border-radius:6px;">
+                <option value="工作">工作</option>
+                <option value="学习">学习</option>
+                <option value="生活">生活</option>
+                <option value="其他" selected>其他</option>
+            </select>
             <button onclick="addTodo()">添加</button>
+        </div>
+        <div class="filter-row">
+            <button class="filter-btn active" onclick="filterBy('全部')">全部</button>
+            <button class="filter-btn" onclick="filterBy('工作')">工作</button>
+            <button class="filter-btn" onclick="filterBy('学习')">学习</button>
+            <button class="filter-btn" onclick="filterBy('生活')">生活</button>
+            <button class="filter-btn" onclick="filterBy('其他')">其他</button>
         </div>
         <ul id="list"></ul>
     </div>
@@ -55,6 +78,17 @@
         const API = "";
         let isLoginMode = true;
         let token = localStorage.getItem("token") || "";
+        let currentFilter = "全部";
+        let currentKeyword = "";
+
+        //#新增函数
+        function filterBy(cat) {
+            currentFilter = cat;
+            document.querySelectorAll(".filter-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === cat);
+            });
+            loadTodos();
+        }
 
         // ===== 认证相关 =====
 
@@ -130,16 +164,31 @@
             };
         }
 
-        async function loadTodos() {
-            const res = await fetch(API + "/todos", { headers: authHeaders() });
+            async function loadTodos() {
+            const params = new URLSearchParams();
+            if (currentFilter !== "全部") params.set("category", currentFilter);
+            if (currentKeyword) params.set("keyword", currentKeyword);
+
+            const url = `${API}/todos${params.toString() ? '?' + params.toString() : ''}`;
+            const res = await fetch(url, { headers: authHeaders() });
+
             if (res.status === 401) { logout(); return; }
             const todos = await res.json();
             const list = document.getElementById("list");
             list.innerHTML = "";
             todos.forEach(t => {
                 const li = document.createElement("li");
+                let dateHtml = "";
+                if (t.due_date) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const overdue = !t.done && t.due_date < today;
+                    const cls = overdue ? "date overdue" : "date";
+                    dateHtml = `<span class="${cls}">📅 ${t.due_date}</span>`;
+                }
                 li.innerHTML = `
                     <span class="text ${t.done ? 'done' : ''}">${t.text}</span>
+                    <span class="category-tag">${t.category || '其他'}</span>
+                    ${dateHtml}
                     <button class="btn-toggle" onclick="toggleTodo(${t.id})">✓</button>
                     <button class="btn-delete" onclick="deleteTodo(${t.id})">✗</button>
                 `;
@@ -149,14 +198,21 @@
 
         async function addTodo() {
             const input = document.getElementById("input");
+            const dateInput = document.getElementById("due-date");
+            const catSelect = document.getElementById("category");
             const text = input.value.trim();
             if (!text) return;
+
+            const body = { text, category: catSelect.value };
+            if (dateInput.value) body.due_date = dateInput.value;
+
             await fetch(API + "/todos", {
                 method: "POST",
                 headers: authHeaders(),
-                body: JSON.stringify({ text })
+                body: JSON.stringify(body)
             });
             input.value = "";
+            dateInput.value = "";
             loadTodos();
         }
 
@@ -178,6 +234,10 @@
 
         document.getElementById("input").addEventListener("keypress", e => {
             if (e.key === "Enter") addTodo();
+        });
+        document.getElementById("search").addEventListener("input", e => {
+            currentKeyword = e.target.value.trim();
+            loadTodos();
         });
 
         // ===== 启动 =====
