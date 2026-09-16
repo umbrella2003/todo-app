@@ -2,10 +2,19 @@ from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from db import TodoDB
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from auth import hash_password, verify_password, create_token, get_current_user
+
 
 app = FastAPI(title="待办清单 API")
 db = TodoDB()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # 请求体格式：POST /todos 时，body 里传 {"text": "xxx"}
